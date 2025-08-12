@@ -1,0 +1,15 @@
+{
+    "name": "neo/shelter-management-system",
+    "autoload": {
+        "psr-4": {
+            "Neo\\ShelterManagementSystem\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Neo Coder",
+            "email": "leon.jass@outlook.com"
+        }
+    ],
+    "require": {}
+}
