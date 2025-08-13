@@ -84,6 +84,7 @@ try {
         <div class="container">
             <a class="navbar-brand" href="index.php">Sistema de Refugios</a>
             <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="shelter.php">Refugios</a>
                 <a class="nav-link" href="#admin">Panel Admin</a>
             </div>
         </div>
@@ -138,36 +139,8 @@ try {
             </div>
         </div>
     </section>
-
-    <section class="py-4">
-        <div class="container">
-            <h3>Refugios Disponibles</h3>
-            <div class="row g-3">
-                <?php foreach ($refugios as $refugio): ?>
-                    <div class="col-md-6 col-lg-4">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h5 class="card-title"><?= htmlspecialchars($refugio['nombre_refugio']) ?></h5>
-                                <p class="card-text"><?= htmlspecialchars($refugio['ubicacion']) ?></p>
-                                <p><strong>Capacidad:</strong> <?= $refugio['capacidad_ocupada'] ?>/<?= $refugio['capacidad_maxima'] ?></p>
-                                <p><strong>Estado:</strong> 
-                                    <span class="badge <?= $refugio['estado'] == 'Disponible' ? 'bg-success' : 'bg-danger' ?>">
-                                        <?= htmlspecialchars($refugio['estado']) ?>
-                                    </span>
-                                </p>
-                                <div class="d-flex gap-2">
-                                    <a href="export.php?refugio=<?= $refugio['refugio_id'] ?>&format=csv" class="btn btn-sm btn-outline-primary">CSV</a>
-                                    <?php if ($refugio['lat'] && $refugio['lng']): ?>
-                                        <a href="https://maps.google.com/?q=<?= $refugio['lat'] ?>,<?= $refugio['lng'] ?>" target="_blank" class="btn btn-sm btn-outline-success">Mapa</a>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-    </section>
+    
+<!--Aqui estaba anteriormente lo de refugios-->
 
     <section class="py-4">
         <div class="container">
