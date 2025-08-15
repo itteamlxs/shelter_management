@@ -3,6 +3,7 @@ require_once 'config/database.php';
 
 $search = $_GET['search'] ?? '';
 $refugio_filter = $_GET['refugio'] ?? '';
+$status_filter = $_GET['status'] ?? '';
 $page = max(1, (int)($_GET['page'] ?? 1));
 $limit = 20;
 $offset = ($page - 1) * $limit;
@@ -21,11 +22,11 @@ try {
     $refugios = [];
 }
 
-$count_query = 'SELECT COUNT(*) FROM vw_public_personas WHERE 1=1';
+$count_query = 'SELECT COUNT(*) FROM vw_admin_personas_full WHERE 1=1';
 $count_params = [];
 
 if (!empty($search)) {
-    $count_query .= ' AND (nombre LIKE ? OR refugio LIKE ?)';
+    $count_query .= ' AND (nombre_preferido LIKE ? OR nombre_refugio LIKE ?)';
     $count_params[] = '%' . $search . '%';
     $count_params[] = '%' . $search . '%';
 }
@@ -33,6 +34,11 @@ if (!empty($search)) {
 if (!empty($refugio_filter)) {
     $count_query .= ' AND refugio_id = ?';
     $count_params[] = $refugio_filter;
+}
+
+if (!empty($status_filter)) {
+    $count_query .= ' AND estatus = ?';
+    $count_params[] = $status_filter;
 }
 
 try {
@@ -45,11 +51,11 @@ try {
     $total_pages = 0;
 }
 
-$query = 'SELECT * FROM vw_public_personas WHERE 1=1';
+$query = 'SELECT * FROM vw_admin_personas_full WHERE 1=1';
 $params = [];
 
 if (!empty($search)) {
-    $query .= ' AND (nombre LIKE ? OR refugio LIKE ?)';
+    $query .= ' AND (nombre_preferido LIKE ? OR nombre_refugio LIKE ?)';
     $params[] = '%' . $search . '%';
     $params[] = '%' . $search . '%';
 }
@@ -57,6 +63,11 @@ if (!empty($search)) {
 if (!empty($refugio_filter)) {
     $query .= ' AND refugio_id = ?';
     $params[] = $refugio_filter;
+}
+
+if (!empty($status_filter)) {
+    $query .= ' AND estatus = ?';
+    $params[] = $status_filter;
 }
 
 $query .= ' ORDER BY fecha_ingreso DESC LIMIT ? OFFSET ?';
@@ -139,8 +150,6 @@ try {
             </div>
         </div>
     </section>
-    
-<!--Aqui estaba anteriormente lo de refugios-->
 
     <section class="py-4">
         <div class="container">
@@ -148,10 +157,10 @@ try {
             <p class="text-muted">Total: <?= $total_personas ?> personas</p>
             
             <form method="GET" class="row g-3 mb-4">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <input type="text" class="form-control" name="search" placeholder="Buscar por nombre o refugio" value="<?= htmlspecialchars($search) ?>">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select name="refugio" class="form-select">
                         <option value="">Todos los refugios</option>
                         <?php foreach ($refugios as $refugio): ?>
@@ -159,6 +168,14 @@ try {
                                 <?= htmlspecialchars($refugio['nombre_refugio']) ?>
                             </option>
                         <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="status" class="form-select">
+                        <option value="">Todos los estados</option>
+                        <option value="Alojado" <?= $status_filter == 'Alojado' ? 'selected' : '' ?>>Alojado</option>
+                        <option value="Dado de alta" <?= $status_filter == 'Dado de alta' ? 'selected' : '' ?>>Dado de alta</option>
+                        <option value="Trasladado a otro refugio" <?= $status_filter == 'Trasladado a otro refugio' ? 'selected' : '' ?>>Trasladado</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -186,14 +203,22 @@ try {
                         <?php else: ?>
                             <?php foreach ($personas as $persona): ?>
                                 <tr>
-                                    <td><?= htmlspecialchars($persona['nombre']) ?></td>
+                                    <td><?= htmlspecialchars($persona['nombre_preferido']) ?></td>
                                     <td><?= htmlspecialchars($persona['edad_rango']) ?></td>
                                     <td><?= htmlspecialchars($persona['genero']) ?></td>
                                     <td>
-                                        <span class="badge bg-success"><?= htmlspecialchars($persona['estatus']) ?></span>
+                                        <?php
+                                        $badge_class = match($persona['estatus']) {
+                                            'Alojado' => 'bg-success',
+                                            'Dado de alta' => 'bg-info',
+                                            'Trasladado a otro refugio' => 'bg-warning',
+                                            default => 'bg-secondary'
+                                        };
+                                        ?>
+                                        <span class="badge <?= $badge_class ?>"><?= htmlspecialchars($persona['estatus']) ?></span>
                                     </td>
                                     <td><?= htmlspecialchars($persona['fecha_ingreso']) ?> <?= htmlspecialchars($persona['hora_ingreso']) ?></td>
-                                    <td><?= htmlspecialchars($persona['refugio']) ?></td>
+                                    <td><?= htmlspecialchars($persona['nombre_refugio']) ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
