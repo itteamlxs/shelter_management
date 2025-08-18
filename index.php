@@ -1,5 +1,8 @@
 
 <?php
+// Start output buffering to prevent header issues
+ob_start();
+
 require_once 'vendor/autoload.php';
 require_once 'config/database.php';
 require_once 'config/auth.php';
