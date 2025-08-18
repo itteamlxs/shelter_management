@@ -1,381 +1,312 @@
+/**
+ * Dashboard JavaScript
+ * Sistema de Refugios - Enhanced with Phase 3 features
+ */
 
-// Dashboard JavaScript
 let currentUser = null;
-let csrfToken = '';
+let currentSection = 'dashboard';
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
     checkAuthentication();
-    initializeEventListeners();
-    getCsrfToken();
 });
 
+/**
+ * Check authentication and load initial data
+ */
 async function checkAuthentication() {
     try {
         const response = await fetch('/backend/api/auth.php/me');
         const data = await response.json();
-        
-        if (data.success) {
+
+        if (data.success && data.user) {
             currentUser = data.user;
-            updateUserInterface();
-            loadDashboard();
+            setupUserInterface();
+            loadDashboardData();
         } else {
-            window.location.href = 'login.html';
+            window.location.href = '/login.html';
         }
     } catch (error) {
         console.error('Authentication check failed:', error);
-        window.location.href = 'login.html';
+        window.location.href = '/login.html';
     }
 }
 
-async function getCsrfToken() {
-    try {
-        const response = await fetch('/backend/api/auth.php/csrf-token');
-        const data = await response.json();
-        if (data.success) {
-            csrfToken = data.csrf_token;
-        }
-    } catch (error) {
-        console.error('Error getting CSRF token:', error);
+/**
+ * Setup user interface based on role
+ */
+function setupUserInterface() {
+    const userInfo = document.getElementById('userInfo');
+    userInfo.textContent = `${currentUser.username} (${currentUser.rol})`;
+
+    // Show/hide navigation items based on role
+    if (currentUser.rol === 'Administrador') {
+        document.getElementById('adminNav').style.display = 'block';
+        document.getElementById('uploadsNav').style.display = 'block';
+        document.getElementById('uploadLink').style.display = 'block';
+        document.getElementById('uploadSidebarLink').style.display = 'block';
+    } else if (currentUser.rol === 'Refugio') {
+        document.getElementById('personasNav').style.display = 'block';
+        document.getElementById('uploadsNav').style.display = 'block';
+        document.getElementById('uploadLink').style.display = 'block';
+        document.getElementById('uploadSidebarLink').style.display = 'block';
+    } else if (currentUser.rol === 'Auditor') {
+        document.getElementById('uploadsNav').style.display = 'block';
     }
 }
 
-function updateUserInterface() {
-    document.getElementById('userDisplayName').textContent = currentUser.nombre_mostrado;
-    document.getElementById('userRole').textContent = currentUser.rol;
-    
-    // Update navigation based on role
-    const navMenu = document.getElementById('navigationMenu');
-    let additionalMenuItems = '';
-    
-    switch (currentUser.rol) {
-        case 'Refugio':
-            additionalMenuItems = `
-                <li class="nav-item">
-                    <a class="nav-link" href="#" data-section="refugio-personas">
-                        👥 Personas Alojadas
-                    </a>
-                </li>
-            `;
-            break;
-            
-        case 'Administrador':
-            additionalMenuItems = `
-                <li class="nav-item">
-                    <a class="nav-link" href="#" data-section="admin-users">
-                        👤 Gestión de Usuarios
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#" data-section="refugio-personas">
-                        👥 Todas las Personas
-                    </a>
-                </li>
-            `;
-            break;
-            
-        case 'Auditor':
-            additionalMenuItems = `
-                <li class="nav-item">
-                    <a class="nav-link" href="#" data-section="auditor-logs">
-                        📋 Registro de Auditoría
-                    </a>
-                </li>
-            `;
-            break;
-    }
-    
-    navMenu.innerHTML += additionalMenuItems;
-}
-
-function initializeEventListeners() {
-    // Navigation menu clicks
-    document.addEventListener('click', function(e) {
-        if (e.target.matches('[data-section]')) {
-            e.preventDefault();
-            const section = e.target.getAttribute('data-section');
-            showSection(section);
-            
-            // Update active nav item
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.classList.remove('active');
-            });
-            e.target.classList.add('active');
-        }
-    });
-    
-    // Logout button
-    document.getElementById('logoutBtn').addEventListener('click', function(e) {
-        e.preventDefault();
-        logout();
-    });
-    
-    // New person form
-    document.getElementById('newPersonForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        submitNewPerson();
-    });
-    
-    // New user form
-    document.getElementById('newUserForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        submitNewUser();
-    });
-    
-    // Role change handler for user form
-    document.getElementById('newRol').addEventListener('change', function() {
-        const refugioContainer = document.getElementById('refugioSelectContainer');
-        if (this.value === 'Refugio') {
-            refugioContainer.style.display = 'block';
-            loadRefugiosForSelect();
-        } else {
-            refugioContainer.style.display = 'none';
-        }
-    });
-    
-    // Search personas
-    let searchTimeout;
-    document.getElementById('searchPersonas')?.addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            loadPersonas(this.value);
-        }, 300);
-    });
-    
-    // Set default date/time for new person
-    const today = new Date();
-    document.getElementById('fechaIngreso').value = today.toISOString().split('T')[0];
-    document.getElementById('horaIngreso').value = today.toTimeString().slice(0, 5);
-}
-
-function showSection(sectionName) {
-    // Hide all sections
-    document.querySelectorAll('.content-section').forEach(section => {
-        section.classList.add('d-none');
-    });
-    
-    // Show selected section
-    const targetSection = document.getElementById(sectionName.replace('-', '') + 'Section');
-    if (targetSection) {
-        targetSection.classList.remove('d-none');
-        
-        // Load section-specific content
-        switch (sectionName) {
-            case 'dashboard':
-                loadDashboard();
-                break;
-            case 'refugio-personas':
-                loadPersonas();
-                break;
-            case 'admin-users':
-                loadUsers();
-                break;
-            case 'auditor-logs':
-                loadAuditLogs();
-                break;
-        }
-    }
-}
-
-async function loadDashboard() {
+/**
+ * Load dashboard data
+ */
+async function loadDashboardData() {
     try {
         const response = await fetch('/backend/api/private.php/dashboard');
         const data = await response.json();
-        
+
         if (data.success) {
-            renderDashboard(data.data);
-        } else {
-            showError('Error cargando dashboard: ' + data.error);
+            displayDashboardStats(data.data.stats);
+            displayRecentUploads(data.data.recent_uploads || []);
+
+            // Role-specific data
+            if (currentUser.rol === 'Refugio' && data.data.refugio) {
+                displayRefugioInfo(data.data.refugio);
+            }
         }
     } catch (error) {
-        console.error('Dashboard load error:', error);
-        showError('Error de conexión al cargar dashboard');
+        console.error('Error loading dashboard data:', error);
     }
 }
 
-function renderDashboard(data) {
-    const container = document.getElementById('dashboardContent');
+/**
+ * Display dashboard statistics
+ */
+function displayDashboardStats(stats) {
+    const statsCards = document.getElementById('statsCards');
     let html = '';
-    
-    switch (currentUser.rol) {
-        case 'Refugio':
-            html = renderRefugioDashboard(data);
-            break;
-        case 'Administrador':
-            html = renderAdminDashboard(data);
-            break;
-        case 'Auditor':
-            html = renderAuditorDashboard(data);
-            break;
-        default:
-            html = '<div class="alert alert-info">Dashboard no disponible para este rol</div>';
+
+    if (currentUser.rol === 'Administrador') {
+        html = `
+            <div class="col-md-4">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Refugios</h5>
+                        <h2 class="card-text">${stats.total_refugios || 0}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Personas</h5>
+                        <h2 class="card-text">${stats.total_personas || 0}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-info">
+                    <div class="card-body">
+                        <h5 class="card-title">Personas Activas</h5>
+                        <h2 class="card-text">${stats.personas_activas || 0}</h2>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (currentUser.rol === 'Refugio') {
+        html = `
+            <div class="col-md-6">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h5 class="card-title">Personas Activas</h5>
+                        <h2 class="card-text">${stats.personas_activas || 0}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card text-white bg-info">
+                    <div class="card-body">
+                        <h5 class="card-title">Ingresos Hoy</h5>
+                        <h2 class="card-text">${stats.ingresos_hoy || 0}</h2>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (currentUser.rol === 'Auditor') {
+        html = `
+            <div class="col-md-6">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Refugios</h5>
+                        <h2 class="card-text">${stats.total_refugios || 0}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Personas</h5>
+                        <h2 class="card-text">${stats.total_personas || 0}</h2>
+                    </div>
+                </div>
+            </div>
+        `;
     }
-    
+
+    statsCards.innerHTML = html;
+}
+
+/**
+ * Display recent uploads
+ */
+function displayRecentUploads(uploads) {
+    const container = document.getElementById('recentUploads');
+
+    if (!uploads || uploads.length === 0) {
+        container.innerHTML = '<p class="text-muted">No hay subidas recientes.</p>';
+        return;
+    }
+
+    const html = uploads.map(upload => `
+        <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+            <div>
+                <div class="fw-bold">${upload.archivo_nombre}</div>
+                <small class="text-muted">${upload.refugio_nombre || 'N/A'}</small>
+            </div>
+            <div class="text-end">
+                <span class="badge bg-${getStatusBadgeClass(upload.estado)}">
+                    ${getStatusText(upload.estado)}
+                </span>
+                <br>
+                <small class="text-muted">${formatDate(upload.fecha_subida)}</small>
+            </div>
+        </div>
+    `).join('');
+
     container.innerHTML = html;
 }
 
-function renderRefugioDashboard(data) {
-    const stats = data.refugio_stats || {};
-    const personas = data.recent_persons?.data || [];
-    
-    return `
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body text-center">
-                        <h3 class="text-primary">${stats.capacidad_ocupada || 0}</h3>
-                        <p class="mb-0">Personas Alojadas</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body text-center">
-                        <h3 class="text-warning">${stats.capacidad_maxima || 0}</h3>
-                        <p class="mb-0">Capacidad Máxima</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body text-center">
-                        <h3 class="text-success">${stats.dados_alta || 0}</h3>
-                        <p class="mb-0">Dados de Alta</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body text-center">
-                        <h3 class="text-info">${stats.trasladados || 0}</h3>
-                        <p class="mb-0">Trasladados</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
+/**
+ * Display refugio info for refugio users
+ */
+function displayRefugioInfo(refugio) {
+    const recentActivity = document.getElementById('recentActivity');
+
+    const html = `
         <div class="card">
-            <div class="card-header">
-                <h5>Personas Registradas Recientemente</h5>
-            </div>
             <div class="card-body">
-                ${personas.length > 0 ? renderPersonasTable(personas) : '<p class="text-muted">No hay registros recientes</p>'}
+                <h6 class="card-title">${refugio.nombre}</h6>
+                <p class="card-text">
+                    <strong>Dirección:</strong> ${refugio.direccion}<br>
+                    <strong>Capacidad:</strong> ${refugio.capacidad_maxima}<br>
+                    <strong>Teléfono:</strong> ${refugio.telefono || 'N/A'}<br>
+                    <strong>Email:</strong> ${refugio.email || 'N/A'}
+                </p>
             </div>
         </div>
     `;
+
+    recentActivity.innerHTML = html;
 }
 
-function renderAdminDashboard(data) {
-    const stats = data.global_stats || {};
-    const refugios = data.refugios_overview || [];
-    
-    return `
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body text-center">
-                        <h3 class="text-primary">${stats.total_refugios || 0}</h3>
-                        <p class="mb-0">Total Refugios</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body text-center">
-                        <h3 class="text-warning">${stats.total_personas || 0}</h3>
-                        <p class="mb-0">Total Personas</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body text-center">
-                        <h3 class="text-success">${stats.total_alojados || 0}</h3>
-                        <p class="mb-0">Actualmente Alojados</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body text-center">
-                        <h3 class="text-info">${Math.round((stats.ocupacion_total_sistema / stats.capacidad_total_sistema) * 100) || 0}%</h3>
-                        <p class="mb-0">Ocupación Total</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="card">
-            <div class="card-header">
-                <h5>Estado de Refugios</h5>
-            </div>
-            <div class="card-body">
-                ${refugios.length > 0 ? renderRefugiosTable(refugios) : '<p class="text-muted">No hay refugios registrados</p>'}
-            </div>
-        </div>
-    `;
-}
+/**
+ * Show specific section
+ */
+function showSection(section) {
+    // Hide all sections
+    document.querySelectorAll('[id$="Section"]').forEach(el => el.style.display = 'none');
 
-function renderAuditorDashboard(data) {
-    const logs = data.recent_activity || [];
-    
-    return `
-        <div class="card">
-            <div class="card-header">
-                <h5>Actividad Reciente del Sistema</h5>
-            </div>
-            <div class="card-body">
-                ${logs.length > 0 ? renderAuditLogsTable(logs) : '<p class="text-muted">No hay actividad reciente</p>'}
-            </div>
-        </div>
-    `;
-}
+    // Show selected section
+    document.getElementById(section + 'Section').style.display = 'block';
 
-async function loadPersonas(search = '') {
-    try {
-        const refugioParam = currentUser.rol === 'Refugio' ? '' : '';
-        const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
-        
-        const response = await fetch(`/backend/api/private.php/refugio/personas?page=1&per_page=50${searchParam}${refugioParam}`);
-        const data = await response.json();
-        
-        if (data.success) {
-            const container = document.getElementById('personasTableContainer');
-            container.innerHTML = data.data.length > 0 ? renderPersonasTable(data.data) : '<p class="text-muted">No se encontraron personas</p>';
-        } else {
-            showError('Error cargando personas: ' + data.error);
-        }
-    } catch (error) {
-        console.error('Load personas error:', error);
-        showError('Error de conexión al cargar personas');
+    // Update navigation
+    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+    event.target.classList.add('active');
+
+    currentSection = section;
+
+    // Load section-specific data
+    switch (section) {
+        case 'personas':
+            loadPersonas();
+            break;
+        case 'admin':
+            loadAdminData();
+            break;
+        case 'uploads':
+            loadUploadsHistory();
+            break;
     }
 }
 
-function renderPersonasTable(personas) {
-    return `
+/**
+ * Load personas data
+ */
+async function loadPersonas() {
+    if (currentUser.rol !== 'Refugio' && currentUser.rol !== 'Administrador') {
+        return;
+    }
+
+    try {
+        const search = document.getElementById('personasSearch')?.value || '';
+        let url = '/backend/api/private.php/refugio/personas';
+
+        if (currentUser.rol === 'Administrador') {
+            const refugioId = currentUser.refugio_id || 1; // Default for admin
+            url += `?refugio_id=${refugioId}`;
+        }
+
+        if (search) {
+            url += (url.includes('?') ? '&' : '?') + `search=${encodeURIComponent(search)}`;
+        }
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.success) {
+            displayPersonasTable(data.data || []);
+        } else {
+            document.getElementById('personasTable').innerHTML = 
+                '<p class="text-muted">Error cargando personas.</p>';
+        }
+    } catch (error) {
+        console.error('Error loading personas:', error);
+        document.getElementById('personasTable').innerHTML = 
+            '<p class="text-muted">Error de conexión.</p>';
+    }
+}
+
+/**
+ * Display personas table
+ */
+function displayPersonasTable(personas) {
+    const container = document.getElementById('personasTable');
+
+    if (personas.length === 0) {
+        container.innerHTML = '<p class="text-muted">No hay personas registradas.</p>';
+        return;
+    }
+
+    const html = `
         <div class="table-responsive">
             <table class="table table-striped">
                 <thead>
                     <tr>
                         <th>Nombre</th>
-                        <th>Edad</th>
-                        <th>Género</th>
+                        <th>Documento</th>
+                        <th>Teléfono</th>
                         <th>Fecha Ingreso</th>
-                        <th>Área</th>
-                        <th>Estatus</th>
+                        <th>Estado</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${personas.map(persona => `
                         <tr>
-                            <td>${escapeHtml(persona.nombre_preferido)}</td>
-                            <td>${escapeHtml(persona.edad_rango)}</td>
-                            <td>${escapeHtml(persona.genero)}</td>
-                            <td>${escapeHtml(persona.fecha_ingreso)}</td>
-                            <td>${escapeHtml(persona.area_asignada || '-')}</td>
+                            <td>${persona.nombres} ${persona.apellidos}</td>
+                            <td>${persona.documento_identidad}</td>
+                            <td>${persona.telefono || 'N/A'}</td>
+                            <td>${formatDate(persona.fecha_ingreso)}</td>
                             <td>
-                                <span class="badge bg-${getStatusColor(persona.estatus)}">
-                                    ${escapeHtml(persona.estatus)}
+                                <span class="badge bg-${persona.fecha_salida ? 'secondary' : 'success'}">
+                                    ${persona.fecha_salida ? 'Inactivo' : 'Activo'}
                                 </span>
                             </td>
                         </tr>
@@ -384,302 +315,187 @@ function renderPersonasTable(personas) {
             </table>
         </div>
     `;
+
+    container.innerHTML = html;
 }
 
-function renderRefugiosTable(refugios) {
-    return `
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Ubicación</th>
-                        <th>Capacidad</th>
-                        <th>Ocupación</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${refugios.map(refugio => `
-                        <tr>
-                            <td>${escapeHtml(refugio.nombre_refugio)}</td>
-                            <td>${escapeHtml(refugio.ubicacion)}</td>
-                            <td>${refugio.capacidad_maxima}</td>
-                            <td>${refugio.capacidad_ocupada}/${refugio.capacidad_maxima}</td>
-                            <td>
-                                <span class="badge bg-${refugio.estado === 'Disponible' ? 'success' : 'warning'}">
-                                    ${escapeHtml(refugio.estado)}
-                                </span>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
+/**
+ * Search personas
+ */
+function searchPersonas() {
+    loadPersonas();
 }
 
-function renderAuditLogsTable(logs) {
-    return `
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Usuario</th>
-                        <th>Acción</th>
-                        <th>Objeto</th>
-                        <th>Resumen</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${logs.map(log => `
-                        <tr>
-                            <td>${new Date(log.creado_en).toLocaleString()}</td>
-                            <td>${escapeHtml(log.nombre_mostrado || log.username || 'Sistema')}</td>
-                            <td>
-                                <span class="badge bg-${getActionColor(log.accion)}">
-                                    ${escapeHtml(log.accion)}
-                                </span>
-                            </td>
-                            <td>${escapeHtml(log.objeto)}</td>
-                            <td>${escapeHtml(log.resumen || '-')}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
-}
-
-async function submitNewPerson() {
-    const form = document.getElementById('newPersonForm');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-    data.csrf_token = csrfToken;
-    
-    try {
-        const response = await fetch('/backend/api/private.php/refugio/register-person', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showSuccess('Persona registrada exitosamente');
-            bootstrap.Modal.getInstance(document.getElementById('newPersonModal')).hide();
-            form.reset();
-            loadPersonas();
-            loadDashboard();
-        } else {
-            showError('Error al registrar persona: ' + result.error);
-        }
-    } catch (error) {
-        console.error('Submit person error:', error);
-        showError('Error de conexión al registrar persona');
+/**
+ * Load admin data
+ */
+async function loadAdminData() {
+    if (currentUser.rol !== 'Administrador') {
+        return;
     }
-}
 
-async function submitNewUser() {
-    const form = document.getElementById('newUserForm');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-    data.csrf_token = csrfToken;
-    
-    try {
-        const response = await fetch('/backend/api/private.php/admin/create-user', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showSuccess('Usuario creado exitosamente');
-            bootstrap.Modal.getInstance(document.getElementById('newUserModal')).hide();
-            form.reset();
-            loadUsers();
-        } else {
-            showError('Error al crear usuario: ' + result.error);
-        }
-    } catch (error) {
-        console.error('Submit user error:', error);
-        showError('Error de conexión al crear usuario');
-    }
-}
-
-async function logout() {
-    try {
-        await fetch('/backend/api/auth.php/logout', { method: 'POST' });
-        window.location.href = 'login.html';
-    } catch (error) {
-        console.error('Logout error:', error);
-        window.location.href = 'login.html';
-    }
-}
-
-// Utility functions
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function getStatusColor(status) {
-    switch (status) {
-        case 'Alojado': return 'success';
-        case 'Dado de alta': return 'info';
-        case 'Trasladado a otro refugio': return 'warning';
-        default: return 'secondary';
-    }
-}
-
-function getActionColor(action) {
-    switch (action) {
-        case 'CREATE': return 'success';
-        case 'UPDATE': return 'warning';
-        case 'DELETE': return 'danger';
-        case 'LOGIN': return 'info';
-        case 'LOGOUT': return 'secondary';
-        default: return 'primary';
-    }
-}
-
-function showSuccess(message) {
-    showAlert(message, 'success');
-}
-
-function showError(message) {
-    showAlert(message, 'danger');
-}
-
-function showAlert(message, type) {
-    const alertHtml = `
-        <div class="alert alert-${type} alert-dismissible fade show position-fixed" style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;" role="alert">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', alertHtml);
-    
-    // Auto-hide after 5 seconds
-    setTimeout(() => {
-        const alert = document.querySelector('.alert');
-        if (alert) {
-            bootstrap.Alert.getOrCreateInstance(alert).close();
-        }
-    }, 5000);
-}
-
-function refreshDashboard() {
-    loadDashboard();
-}
-
-// Additional functions for data loading
-async function loadUsers() {
     try {
         const response = await fetch('/backend/api/private.php/admin/users');
         const data = await response.json();
-        
+
         if (data.success) {
-            const container = document.getElementById('usersTableContainer');
-            container.innerHTML = data.data.length > 0 ? renderUsersTable(data.data) : '<p class="text-muted">No hay usuarios registrados</p>';
-        } else {
-            showError('Error cargando usuarios: ' + data.error);
+            displayUsersTable(data.data || []);
         }
     } catch (error) {
-        console.error('Load users error:', error);
-        showError('Error de conexión al cargar usuarios');
+        console.error('Error loading admin data:', error);
     }
 }
 
-function renderUsersTable(users) {
-    return `
+/**
+ * Display users table
+ */
+function displayUsersTable(users) {
+    const container = document.getElementById('usersTable');
+
+    const html = `
         <div class="table-responsive">
-            <table class="table table-striped">
+            <table class="table table-sm">
                 <thead>
                     <tr>
                         <th>Usuario</th>
-                        <th>Nombre</th>
+                        <th>Email</th>
                         <th>Rol</th>
-                        <th>Refugio</th>
                         <th>Estado</th>
-                        <th>Último Login</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${users.map(user => `
                         <tr>
-                            <td>${escapeHtml(user.username)}</td>
-                            <td>${escapeHtml(user.nombre_mostrado)}</td>
-                            <td>
-                                <span class="badge bg-${getRoleColor(user.rol)}">
-                                    ${escapeHtml(user.rol)}
-                                </span>
-                            </td>
-                            <td>${escapeHtml(user.nombre_refugio || '-')}</td>
+                            <td>${user.username}</td>
+                            <td>${user.email || 'N/A'}</td>
+                            <td>${user.rol}</td>
                             <td>
                                 <span class="badge bg-${user.activo ? 'success' : 'danger'}">
                                     ${user.activo ? 'Activo' : 'Inactivo'}
                                 </span>
                             </td>
-                            <td>${user.ultimo_login ? new Date(user.ultimo_login).toLocaleString() : 'Nunca'}</td>
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
         </div>
     `;
+
+    container.innerHTML = html;
 }
 
-function getRoleColor(role) {
-    switch (role) {
-        case 'Administrador': return 'danger';
-        case 'Refugio': return 'primary';
-        case 'Auditor': return 'info';
+/**
+ * Load uploads history
+ */
+async function loadUploadsHistory() {
+    try {
+        const response = await fetch('/backend/api/private.php/upload/history');
+        const data = await response.json();
+
+        if (data.success) {
+            displayUploadsTable(data.data || []);
+        }
+    } catch (error) {
+        console.error('Error loading uploads history:', error);
+    }
+}
+
+/**
+ * Display uploads table
+ */
+function displayUploadsTable(uploads) {
+    const container = document.getElementById('uploadsTable');
+
+    if (uploads.length === 0) {
+        container.innerHTML = '<p class="text-muted">No hay historial de subidas.</p>';
+        return;
+    }
+
+    const html = `
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Archivo</th>
+                        <th>Refugio</th>
+                        <th>Usuario</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th>Resultados</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${uploads.map(upload => `
+                        <tr>
+                            <td>${upload.archivo_nombre}</td>
+                            <td>${upload.refugio_nombre || 'N/A'}</td>
+                            <td>${upload.username || 'N/A'}</td>
+                            <td>
+                                <span class="badge bg-${getStatusBadgeClass(upload.estado)}">
+                                    ${getStatusText(upload.estado)}
+                                </span>
+                            </td>
+                            <td>${formatDate(upload.fecha_subida)}</td>
+                            <td>
+                                ${upload.registros_procesados ? `
+                                    <small>
+                                        ${upload.registros_exitosos}/${upload.registros_procesados} exitosos
+                                        ${upload.registros_error > 0 ? `<br>${upload.registros_error} errores` : ''}
+                                    </small>
+                                ` : '-'}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+/**
+ * Utility functions
+ */
+function getStatusBadgeClass(status) {
+    switch (status) {
+        case 'COMPLETED': return 'success';
+        case 'ERROR': return 'danger';
+        case 'PROCESSING': return 'warning';
         default: return 'secondary';
     }
 }
 
-async function loadAuditLogs() {
-    try {
-        const response = await fetch('/backend/api/private.php/auditor/logs?page=1&per_page=50');
-        const data = await response.json();
-        
-        if (data.success) {
-            const container = document.getElementById('auditLogsContainer');
-            container.innerHTML = data.data.length > 0 ? renderAuditLogsTable(data.data) : '<p class="text-muted">No hay registros de auditoría</p>';
-        } else {
-            showError('Error cargando logs: ' + data.error);
-        }
-    } catch (error) {
-        console.error('Load audit logs error:', error);
-        showError('Error de conexión al cargar logs');
+function getStatusText(status) {
+    switch (status) {
+        case 'COMPLETED': return 'Completado';
+        case 'ERROR': return 'Error';
+        case 'PROCESSING': return 'Procesando';
+        default: return status;
     }
 }
 
-async function loadRefugiosForSelect() {
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+/**
+ * Logout function
+ */
+async function logout() {
     try {
-        const response = await fetch('/backend/api/private.php/admin/refugios');
-        const data = await response.json();
-        
-        if (data.success) {
-            const select = document.getElementById('newRefugioId');
-            select.innerHTML = '<option value="">Seleccionar refugio...</option>';
-            
-            data.data.forEach(refugio => {
-                select.innerHTML += `<option value="${refugio.refugio_id}">${escapeHtml(refugio.nombre_refugio)}</option>`;
-            });
-        }
+        await fetch('/backend/api/auth.php/logout', { method: 'POST' });
+        window.location.href = '/login.html';
     } catch (error) {
-        console.error('Load refugios for select error:', error);
+        console.error('Logout error:', error);
+        window.location.href = '/login.html';
     }
 }

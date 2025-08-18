@@ -1,373 +1,192 @@
-
 <?php
-
-require_once __DIR__ . '/../auth/Session.php';
-require_once __DIR__ . '/../models/UserModel.php';
-require_once __DIR__ . '/../models/RefugioModel.php';
-require_once __DIR__ . '/../models/PersonaModel.php';
+/**
+ * Private API Endpoints
+ * Sistema de Refugios - Authenticated user operations
+ */
 
 header('Content-Type: application/json');
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
-header('X-XSS-Protection: 1; mode=block');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+require_once __DIR__ . '/../auth/Session.php';
+require_once __DIR__ . '/../models/PersonaModel.php';
+require_once __DIR__ . '/../models/RefugioModel.php';
+require_once __DIR__ . '/../models/UserModel.php';
+require_once __DIR__ . '/../models/UploadModel.php';
 
 $session = Session::getInstance();
-$userModel = new UserModel();
-$refugioModel = new RefugioModel();
-$personaModel = new PersonaModel();
 
 // Check authentication
-if (!$session->isLoggedIn()) {
+if (!$session->isAuthenticated()) {
     http_response_code(401);
-    echo json_encode(['error' => 'No autenticado']);
+    echo json_encode(['error' => 'Usuario no autenticado']);
     exit;
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
-$path = trim($_SERVER['PATH_INFO'] ?? '', '/');
 $user = $session->getUser();
+$pathInfo = $_SERVER['PATH_INFO'] ?? '/';
+$method = $_SERVER['REQUEST_METHOD'];
 
 try {
-    switch ($method) {
-        case 'GET':
-            handleGetRequest($path, $user);
-            break;
-        case 'POST':
-            handlePostRequest($path, $user);
-            break;
-        case 'PUT':
-            handlePutRequest($path, $user);
-            break;
-        default:
-            http_response_code(405);
-            echo json_encode(['error' => 'Método no permitido']);
+    // Route requests
+    if ($pathInfo === '/dashboard') {
+        handleDashboard($user);
+    } elseif (str_starts_with($pathInfo, '/refugio/')) {
+        handleRefugioOperations($pathInfo, $method, $user);
+    } elseif (str_starts_with($pathInfo, '/admin/')) {
+        handleAdminOperations($pathInfo, $method, $user);
+    } elseif (str_starts_with($pathInfo, '/upload/')) {
+        handleUploadOperations($pathInfo, $method, $user);
+    } else {
+        http_response_code(404);
+        echo json_encode(['error' => 'Endpoint no encontrado']);
     }
+
 } catch (Exception $e) {
     error_log("Private API Error: " . $e->getMessage());
     http_response_code(500);
     echo json_encode(['error' => 'Error interno del servidor']);
 }
 
-function handleGetRequest($path, $user) {
-    global $refugioModel, $personaModel, $userModel;
-    
-    $pathParts = explode('/', $path);
-    
-    switch ($pathParts[0]) {
-        case 'dashboard':
-            handleDashboard($user);
-            break;
-            
-        case 'refugio':
-            if (!$session->checkRole(['Refugio', 'Administrador'])) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Sin permisos']);
-                return;
-            }
-            
-            if (isset($pathParts[1])) {
-                switch ($pathParts[1]) {
-                    case 'personas':
-                        $refugioId = $user['rol'] === 'Refugio' ? $user['refugio_id'] : ($_GET['refugio_id'] ?? null);
-                        if (!$refugioId) {
-                            http_response_code(400);
-                            echo json_encode(['error' => 'refugio_id requerido']);
-                            return;
-                        }
-                        
-                        $search = $_GET['search'] ?? null;
-                        $page = (int)($_GET['page'] ?? 1);
-                        $perPage = min((int)($_GET['per_page'] ?? 20), 100);
-                        
-                        $result = $personaModel->getPersonasByRefugio($refugioId, $search, $perPage, ($page - 1) * $perPage);
-                        echo json_encode($result);
-                        break;
-                        
-                    case 'stats':
-                        $refugioId = $user['rol'] === 'Refugio' ? $user['refugio_id'] : ($_GET['refugio_id'] ?? null);
-                        if (!$refugioId) {
-                            http_response_code(400);
-                            echo json_encode(['error' => 'refugio_id requerido']);
-                            return;
-                        }
-                        
-                        $stats = $refugioModel->getRefugioStats($refugioId);
-                        echo json_encode(['success' => true, 'data' => $stats]);
-                        break;
-                }
-            }
-            break;
-            
-        case 'admin':
-            if (!$session->checkRole('Administrador')) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Sin permisos de administrador']);
-                return;
-            }
-            
-            if (isset($pathParts[1])) {
-                switch ($pathParts[1]) {
-                    case 'users':
-                        $users = $userModel->getAllUsers();
-                        echo json_encode(['success' => true, 'data' => $users]);
-                        break;
-                        
-                    case 'refugios':
-                        $refugios = $refugioModel->getAllRefugios();
-                        echo json_encode(['success' => true, 'data' => $refugios]);
-                        break;
-                }
-            }
-            break;
-            
-        case 'auditor':
-            if (!$session->checkRole(['Auditor', 'Administrador'])) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Sin permisos de auditor']);
-                return;
-            }
-            
-            if (isset($pathParts[1]) && $pathParts[1] === 'logs') {
-                $page = (int)($_GET['page'] ?? 1);
-                $perPage = min((int)($_GET['per_page'] ?? 50), 100);
-                $offset = ($page - 1) * $perPage;
-                
-                $logs = getAuditLogs($perPage, $offset);
-                echo json_encode(['success' => true, 'data' => $logs]);
-            }
-            break;
-            
-        default:
-            http_response_code(404);
-            echo json_encode(['error' => 'Endpoint no encontrado']);
-    }
-}
-
-function handlePostRequest($path, $user) {
-    global $session, $personaModel, $refugioModel, $userModel;
-    
-    $input = json_decode(file_get_contents('php://input'), true);
-    
-    // CSRF validation
-    if (!isset($input['csrf_token']) || !$session->validateCSRFToken($input['csrf_token'])) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Token CSRF inválido']);
-        return;
-    }
-    
-    $pathParts = explode('/', $path);
-    
-    switch ($pathParts[0]) {
-        case 'refugio':
-            if (!$session->checkRole(['Refugio', 'Administrador'])) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Sin permisos']);
-                return;
-            }
-            
-            if (isset($pathParts[1]) && $pathParts[1] === 'register-person') {
-                handleRegisterPerson($input, $user);
-            }
-            break;
-            
-        case 'admin':
-            if (!$session->checkRole('Administrador')) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Sin permisos de administrador']);
-                return;
-            }
-            
-            if (isset($pathParts[1])) {
-                switch ($pathParts[1]) {
-                    case 'create-user':
-                        handleCreateUser($input, $user);
-                        break;
-                        
-                    case 'create-refugio':
-                        handleCreateRefugio($input, $user);
-                        break;
-                }
-            }
-            break;
-            
-        default:
-            http_response_code(404);
-            echo json_encode(['error' => 'Endpoint no encontrado']);
-    }
-}
-
-function handlePutRequest($path, $user) {
-    // Handle PUT requests for updates
-    http_response_code(501);
-    echo json_encode(['error' => 'Funcionalidad no implementada aún']);
-}
-
+/**
+ * Handle dashboard data
+ */
 function handleDashboard($user) {
-    global $refugioModel, $personaModel;
-    
-    $data = [];
-    
+    $refugioModel = new RefugioModel();
+    $personaModel = new PersonaModel();
+
+    $data = [
+        'user' => [
+            'username' => $user['username'],
+            'rol' => $user['rol'],
+            'refugio_id' => $user['refugio_id'] ?? null
+        ]
+    ];
+
+    // Role-specific dashboard data
     switch ($user['rol']) {
+        case 'Administrador':
+            $data['stats'] = [
+                'total_refugios' => $refugioModel->getTotalRefugios(),
+                'total_personas' => $personaModel->getTotalPersonas(),
+                'personas_activas' => $personaModel->getActivePersonas()
+            ];
+            $data['recent_uploads'] = getRecentUploads(null, null, 5);
+            break;
+
         case 'Refugio':
-            if ($user['refugio_id']) {
-                $data['refugio_stats'] = $refugioModel->getRefugioStats($user['refugio_id']);
-                $data['recent_persons'] = $personaModel->getPersonasByRefugio($user['refugio_id'], null, 5, 0);
+            $refugioId = $user['refugio_id'];
+            if ($refugioId) {
+                $refugio = $refugioModel->getRefugioById($refugioId);
+                $data['refugio'] = $refugio;
+                $data['stats'] = [
+                    'personas_activas' => $personaModel->getPersonasCountByRefugio($refugioId),
+                    'ingresos_hoy' => $personaModel->getIngresosHoy($refugioId)
+                ];
+                $data['recent_uploads'] = getRecentUploads(null, $refugioId, 5);
             }
             break;
-            
-        case 'Administrador':
-            $data['global_stats'] = $refugioModel->getPublicStatistics();
-            $data['refugios_overview'] = $refugioModel->getAllRefugios();
-            break;
-            
+
         case 'Auditor':
-            $data['recent_activity'] = getAuditLogs(10, 0);
+            $data['stats'] = [
+                'total_refugios' => $refugioModel->getTotalRefugios(),
+                'total_personas' => $personaModel->getTotalPersonas()
+            ];
+            $data['recent_uploads'] = getRecentUploads(null, null, 10);
             break;
     }
-    
+
     echo json_encode(['success' => true, 'data' => $data]);
 }
 
-function handleRegisterPerson($input, $user) {
-    global $personaModel, $userModel;
-    
-    // Validate required fields
-    $required = ['nombre_preferido', 'edad_rango', 'genero', 'fecha_ingreso', 'hora_ingreso', 'area_asignada'];
-    foreach ($required as $field) {
-        if (empty($input[$field])) {
-            http_response_code(400);
-            echo json_encode(['error' => "Campo requerido: $field"]);
-            return;
-        }
-    }
-    
-    $refugioId = $user['rol'] === 'Refugio' ? $user['refugio_id'] : $input['refugio_id'];
-    if (!$refugioId) {
-        http_response_code(400);
-        echo json_encode(['error' => 'refugio_id requerido']);
+/**
+ * Handle refugio operations
+ */
+function handleRefugioOperations($pathInfo, $method, $user) {
+    if ($user['rol'] !== 'Refugio' && $user['rol'] !== 'Administrador') {
+        http_response_code(403);
+        echo json_encode(['error' => 'Sin permisos para esta operación']);
         return;
     }
-    
-    try {
-        $personaId = $personaModel->createPersona($input);
-        if ($personaId) {
-            $result = $personaModel->registerInRefugio(
-                $personaId,
-                $refugioId,
-                $input['fecha_ingreso'],
-                $input['hora_ingreso'],
-                $input['area_asignada'],
-                $input['estatus'] ?? 'Alojado',
-                $input['observaciones'] ?? null,
-                $user['user_id']
-            );
-            
-            if ($result) {
-                $userModel->logActivity(
-                    $user['user_id'], 
-                    'CREATE', 
-                    'Persona', 
-                    $personaId, 
-                    "Registro de nueva persona: {$input['nombre_preferido']}"
-                );
-                
-                echo json_encode(['success' => true, 'persona_id' => $personaId]);
-            } else {
-                http_response_code(500);
-                echo json_encode(['error' => 'Error al registrar en refugio']);
-            }
-        } else {
-            http_response_code(500);
-            echo json_encode(['error' => 'Error al crear persona']);
-        }
-    } catch (Exception $e) {
+
+    $personaModel = new PersonaModel();
+    $refugioId = $user['refugio_id'] ?? $_GET['refugio_id'] ?? null;
+
+    if (!$refugioId) {
         http_response_code(400);
-        echo json_encode(['error' => $e->getMessage()]);
+        echo json_encode(['error' => 'ID de refugio requerido']);
+        return;
     }
-}
 
-function handleCreateUser($input, $user) {
-    global $userModel;
-    
-    $required = ['username', 'password', 'rol', 'nombre_mostrado'];
-    foreach ($required as $field) {
-        if (empty($input[$field])) {
-            http_response_code(400);
-            echo json_encode(['error' => "Campo requerido: $field"]);
-            return;
+    if ($pathInfo === '/refugio/personas') {
+        if ($method === 'GET') {
+            $search = $_GET['search'] ?? null;
+            $limit = min(intval($_GET['limit'] ?? 20), 100);
+            $offset = intval($_GET['offset'] ?? 0);
+
+            $result = $personaModel->getPersonasByRefugio($refugioId, $search, $limit, $offset);
+            echo json_encode($result);
         }
     }
-    
-    $result = $userModel->createUser(
-        $input['username'],
-        $input['password'],
-        $input['rol'],
-        $input['refugio_id'] ?? null,
-        $input['nombre_mostrado']
-    );
-    
-    if ($result) {
-        $userModel->logActivity(
-            $user['user_id'], 
-            'CREATE', 
-            'Usuario', 
-            null, 
-            "Creación de usuario: {$input['username']}"
-        );
-        
-        echo json_encode(['success' => true]);
-    } else {
-        http_response_code(500);
-        echo json_encode(['error' => 'Error al crear usuario']);
-    }
 }
 
-function handleCreateRefugio($input, $user) {
-    global $refugioModel, $userModel;
-    
-    $required = ['nombre_refugio', 'ubicacion', 'capacidad_maxima', 'fecha_apertura'];
-    foreach ($required as $field) {
-        if (empty($input[$field])) {
-            http_response_code(400);
-            echo json_encode(['error' => "Campo requerido: $field"]);
-            return;
+/**
+ * Handle admin operations
+ */
+function handleAdminOperations($pathInfo, $method, $user) {
+    if ($user['rol'] !== 'Administrador') {
+        http_response_code(403);
+        echo json_encode(['error' => 'Operación solo disponible para administradores']);
+        return;
+    }
+
+    if ($pathInfo === '/admin/users') {
+        $userModel = new UserModel();
+
+        if ($method === 'GET') {
+            $users = $userModel->getAllUsers();
+            echo json_encode(['success' => true, 'data' => $users]);
         }
     }
-    
-    $refugioId = $refugioModel->createRefugio($input);
-    
-    if ($refugioId) {
-        $userModel->logActivity(
-            $user['user_id'], 
-            'CREATE', 
-            'Refugio', 
-            $refugioId, 
-            "Creación de refugio: {$input['nombre_refugio']}"
-        );
-        
-        echo json_encode(['success' => true, 'refugio_id' => $refugioId]);
-    } else {
-        http_response_code(500);
-        echo json_encode(['error' => 'Error al crear refugio']);
+}
+
+/**
+ * Handle upload operations
+ */
+function handleUploadOperations($pathInfo, $method, $user) {
+    $uploadModel = new UploadModel();
+
+    if ($pathInfo === '/upload/history') {
+        if ($method === 'GET') {
+            $limit = min(intval($_GET['limit'] ?? 20), 100);
+            $offset = intval($_GET['offset'] ?? 0);
+
+            // Filter by user role
+            $userId = null;
+            $refugioId = null;
+
+            if ($user['rol'] === 'Refugio') {
+                $refugioId = $user['refugio_id'];
+            } elseif ($user['rol'] !== 'Administrador') {
+                $userId = $user['id'];
+            }
+
+            $uploads = $uploadModel->getUploadHistory($userId, $refugioId, $limit, $offset);
+            echo json_encode(['success' => true, 'data' => $uploads]);
+        }
     }
 }
 
-function getAuditLogs($limit, $offset) {
-    global $db;
-    
-    try {
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("
-            SELECT al.*, u.username, u.nombre_mostrado
-            FROM AuditLog al
-            LEFT JOIN Usuarios u ON al.usuario_id = u.usuario_id
-            ORDER BY al.creado_en DESC
-            LIMIT ? OFFSET ?
-        ");
-        $stmt->execute([$limit, $offset]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {
-        error_log("Get audit logs error: " . $e->getMessage());
-        return [];
-    }
+/**
+ * Get recent uploads helper
+ */
+function getRecentUploads($userId, $refugioId, $limit) {
+    $uploadModel = new UploadModel();
+    return $uploadModel->getUploadHistory($userId, $refugioId, $limit, 0);
 }
+?>

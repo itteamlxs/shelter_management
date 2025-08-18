@@ -67,6 +67,12 @@
                             Ver Refugios
                         </a>
                     </div>
+                    <div class="mt-4">
+                        <small class="text-white-50">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Fase 2: Sistema con autenticación y panel privado
+                        </small>
+                    </div>
                 </div>
                 <div class="col-lg-6">
                     <div class="text-center">
@@ -89,37 +95,53 @@
             <div class="row g-4" id="statistics-container">
                 <!-- Statistics will be loaded dynamically -->
                 <div class="col-md-3">
-                    <div class="card text-center h-100">
+                    <div class="card text-center h-100 shadow-sm">
                         <div class="card-body">
                             <i class="bi bi-people-fill text-primary display-4 mb-3"></i>
-                            <h3 class="card-title" id="total-personas">-</h3>
+                            <h3 class="card-title" id="total-personas">
+                                <span class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </span>
+                            </h3>
                             <p class="card-text text-muted">Total Personas</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <div class="card text-center h-100">
+                    <div class="card text-center h-100 shadow-sm">
                         <div class="card-body">
                             <i class="bi bi-house-check-fill text-success display-4 mb-3"></i>
-                            <h3 class="card-title" id="total-alojados">-</h3>
+                            <h3 class="card-title" id="total-alojados">
+                                <span class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </span>
+                            </h3>
                             <p class="card-text text-muted">Alojados</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <div class="card text-center h-100">
+                    <div class="card text-center h-100 shadow-sm">
                         <div class="card-body">
                             <i class="bi bi-house-door text-info display-4 mb-3"></i>
-                            <h3 class="card-title" id="total-refugios">-</h3>
+                            <h3 class="card-title" id="total-refugios">
+                                <span class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </span>
+                            </h3>
                             <p class="card-text text-muted">Refugios</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <div class="card text-center h-100">
+                    <div class="card text-center h-100 shadow-sm">
                         <div class="card-body">
                             <i class="bi bi-check-circle-fill text-warning display-4 mb-3"></i>
-                            <h3 class="card-title" id="total-dados-alta">-</h3>
+                            <h3 class="card-title" id="total-dados-alta">
+                                <span class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </span>
+                            </h3>
                             <p class="card-text text-muted">Dados de Alta</p>
                         </div>
                     </div>
@@ -139,17 +161,24 @@
             </div>
             <div class="row">
                 <div class="col-lg-8 mx-auto">
-                    <div class="card">
+                    <div class="card shadow-sm">
                         <div class="card-body">
                             <div class="row g-3">
-                                <div class="col-md-8">
+                                <div class="col-md-6">
+                                    <label for="search-personas" class="form-label">Buscar por nombre</label>
                                     <input type="text" class="form-control form-control-lg" 
-                                           id="search-personas" placeholder="Buscar por nombre o refugio...">
+                                           id="search-personas" placeholder="Nombre o apellido...">
                                 </div>
                                 <div class="col-md-4">
+                                    <label for="filter-refugio" class="form-label">Filtrar por refugio</label>
                                     <select class="form-select form-select-lg" id="filter-refugio">
                                         <option value="">Todos los refugios</option>
                                     </select>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button class="btn btn-primary btn-lg w-100" id="btn-search">
+                                        <i class="bi bi-search"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -159,7 +188,10 @@
             <div class="row mt-4">
                 <div class="col-12">
                     <div id="personas-results">
-                        <!-- Results will be loaded here -->
+                        <div class="text-center text-muted">
+                            <i class="bi bi-search display-4 mb-3"></i>
+                            <p>Utiliza los filtros para buscar personas alojadas</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -176,7 +208,47 @@
                 </div>
             </div>
             <div class="row" id="refugios-container">
-                <!-- Refugios will be loaded dynamically -->
+                <div class="col-12 text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando refugios...</span>
+                    </div>
+                    <p class="text-muted mt-2">Cargando información de refugios...</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 text-center mb-5">
+                    <h2 class="fw-bold">Características del Sistema</h2>
+                    <p class="text-muted">Plataforma completa para gestión de refugios</p>
+                </div>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <i class="bi bi-shield-check text-primary display-4 mb-3"></i>
+                        <h5>Seguro y Auditado</h5>
+                        <p class="text-muted">Sistema con autenticación robusta y auditoría completa</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <i class="bi bi-globe text-success display-4 mb-3"></i>
+                        <h5>Portal Público</h5>
+                        <p class="text-muted">Información transparente y accesible para el público</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <i class="bi bi-gear text-info display-4 mb-3"></i>
+                        <h5>Panel Privado</h5>
+                        <p class="text-muted">Herramientas de gestión para personal autorizado</p>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -188,14 +260,21 @@
                 <div class="col-md-6">
                     <h5>Sistema de Refugios</h5>
                     <p class="text-muted">Plataforma de gestión para situaciones de emergencia</p>
+                    <small class="text-muted">Fase 2 - Sistema con Autenticación</small>
                 </div>
                 <div class="col-md-6 text-md-end">
-                    <p class="text-muted mb-0">
+                    <div class="mb-2">
                         <a href="../login.html" class="text-white text-decoration-none">
                             <i class="bi bi-box-arrow-in-right me-1"></i>
                             Acceso para Personal
                         </a>
-                    </p>
+                    </div>
+                    <div>
+                        <a href="../dashboard.html" class="text-white text-decoration-none">
+                            <i class="bi bi-speedometer2 me-1"></i>
+                            Panel de Control
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
