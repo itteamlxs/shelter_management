@@ -9,36 +9,8 @@
     <link rel="stylesheet" href="/assets/theme.css">
 </head>
 <body>
-    <!-- Login Modal -->
-    <div class="modal fade" id="loginModal" tabindex="-1" data-bs-backdrop="static">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Iniciar Sesión</h5>
-                </div>
-                <div class="modal-body">
-                    <form id="loginForm">
-                        <div class="mb-3">
-                            <label class="form-label">Usuario</label>
-                            <input type="text" id="username" class="form-control" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Contraseña</label>
-                            <input type="password" id="password" class="form-control" required>
-                        </div>
-                        <div id="loginError" class="alert alert-danger d-none"></div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <a href="/" class="btn btn-secondary">Volver al Inicio</a>
-                    <button type="submit" form="loginForm" class="btn btn-primary">Ingresar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Main Panel (hidden until login) -->
-    <div id="mainPanel" class="d-none">
+    <!-- Main Panel -->
+    <div id="mainPanel">
         <!-- Navigation -->
         <nav class="navbar navbar-expand-lg">
             <div class="container-fluid">

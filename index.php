@@ -66,11 +66,6 @@ if ($script_name !== '/' && strpos($clean_path, $script_name) === 0) {
     $clean_path = substr($clean_path, strlen($script_name));
 }
 
-// Only set JSON content type for API routes
-if (strpos($clean_path, '/api/') === 0 || strpos($clean_path, '/public/') === 0 || strpos($clean_path, '/auth/') === 0 || strpos($clean_path, '/refugio/') === 0 || strpos($clean_path, '/auditor/') === 0 || strpos($clean_path, '/admin/') === 0) {
-    header('Content-Type: application/json');
-}
-
 $router = new Router();
 
 // Public routes
@@ -80,14 +75,17 @@ $router->get('/', function() {
 });
 
 $router->get('/public/statistics', function() {
+    header('Content-Type: application/json');
     include 'api/public/statistics.php';
 });
 
 $router->get('/public/personas', function() {
+    header('Content-Type: application/json');
     include 'api/public/personas.php';
 });
 
 $router->get('/public/refugios', function() {
+    header('Content-Type: application/json');
     include 'api/public/refugios.php';
 });
 
@@ -96,52 +94,84 @@ $router->get('/public/refugios/{id}/download', function($params) {
 });
 
 // Auth routes
+$router->get('/login', function() {
+    header('Content-Type: text/html');
+    include 'views/login.php';
+});
+
 $router->post('/auth/login', function() {
+    header('Content-Type: application/json');
     include 'api/auth/login.php';
 });
 
 $router->post('/auth/logout', function() {
+    header('Content-Type: application/json');
     include 'api/auth/logout.php';
 });
 
-// Panel routes
+// Protected Panel routes - require authentication
 $router->get('/panel', function() {
+    // Check if user is authenticated
+    $user = Auth::getCurrentUser();
+    if (!$user) {
+        header('Location: /login');
+        exit;
+    }
     header('Content-Type: text/html');
     include 'views/panel.php';
 });
 
-// Admin routes
+$router->get('/dashboard', function() {
+    // Check if user is authenticated
+    $user = Auth::getCurrentUser();
+    if (!$user) {
+        header('Location: /login');
+        exit;
+    }
+    header('Content-Type: text/html');
+    include 'views/dashboard.php';
+});
+
+// Admin routes - require admin authentication
 $router->get('/admin/users', function() {
+    header('Content-Type: application/json');
     include 'api/admin/users.php';
 });
 
 $router->post('/admin/users', function() {
+    header('Content-Type: application/json');
     include 'api/admin/create_user.php';
 });
 
 $router->post('/admin/refugios', function() {
+    header('Content-Type: application/json');
     include 'api/admin/create_refugio.php';
 });
 
-// Refugio routes
+// Refugio routes - require refugio authentication
 $router->get('/refugio/personas', function() {
+    header('Content-Type: application/json');
     include 'api/refugio/personas.php';
 });
 
 $router->post('/refugio/personas', function() {
+    header('Content-Type: application/json');
     include 'api/refugio/create_persona.php';
 });
 
 $router->post('/refugio/upload-csv', function() {
+    header('Content-Type: application/json');
     include 'api/refugio/upload_csv.php';
 });
 
 $router->put('/refugio/profile', function() {
+    header('Content-Type: application/json');
     include 'api/refugio/update_profile.php';
 });
 
-// Auditor routes
+// Auditor routes - require auditor authentication
 $router->get('/auditor/logs', function() {
+    header('Content-Type: application/json');
     include 'api/auditor/logs.php';
 });
 
@@ -151,5 +181,10 @@ try {
 } catch (Exception $e) {
     error_log("Router error: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'Internal server error']);
+    if (strpos($clean_path, '/api/') === 0 || strpos($clean_path, '/auth/') === 0) {
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Internal server error']);
+    } else {
+        echo "Internal server error";
+    }
 }

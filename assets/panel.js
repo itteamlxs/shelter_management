@@ -10,24 +10,29 @@ class PanelApp {
         if (this.token) {
             this.validateToken();
         } else {
-            this.showLogin();
+            window.location.href = '/login';
+            return;
         }
         
         this.setupEventListeners();
     }
     
     setupEventListeners() {
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.login();
-        });
+        // Panel-specific event listeners will be added here
     }
     
     async validateToken() {
         try {
-            const response = await this.fetch('/refugio/personas'); // Test endpoint
+            // Parse token to check expiration
+            const userData = this.parseJWT(this.token);
+            if (!userData || userData.exp < Math.floor(Date.now() / 1000)) {
+                this.logout();
+                return;
+            }
+            
+            // Test token with a simple API call
+            const response = await this.fetch('/refugio/personas');
             if (response.ok) {
-                const userData = this.parseJWT(this.token);
                 this.user = userData;
                 this.showPanel();
             } else {
@@ -47,50 +52,11 @@ class PanelApp {
         }
     }
     
-    showLogin() {
-        document.getElementById('mainPanel').classList.add('d-none');
-        const modal = new bootstrap.Modal(document.getElementById('loginModal'));
-        modal.show();
-    }
-    
-    async login() {
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const errorDiv = document.getElementById('loginError');
-        
-        try {
-            const response = await fetch('/auth/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username, password })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.token = data.token;
-                this.user = data.user;
-                localStorage.setItem('authToken', this.token);
-                
-                bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
-                this.showPanel();
-            } else {
-                errorDiv.textContent = data.error || 'Error de autenticación';
-                errorDiv.classList.remove('d-none');
-            }
-        } catch (error) {
-            errorDiv.textContent = 'Error de conexión';
-            errorDiv.classList.remove('d-none');
-        }
-    }
-    
     logout() {
         localStorage.removeItem('authToken');
         this.token = null;
         this.user = null;
-        window.location.reload();
+        window.location.href = '/login';
     }
     
     showPanel() {
