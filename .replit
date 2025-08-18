@@ -6,3 +6,15 @@ channel = "stable-25_05"
 
 [deployment]
 run = ["sh", "-c", "Run command"]
+
+[workflows]
+runButton = "Run Shelter Platform"
+
+[[workflows.workflow]]
+name = "Run Shelter Platform"
+author = 46514698
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "php -S 0.0.0.0:5000 -t ."

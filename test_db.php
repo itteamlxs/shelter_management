@@ -1,43 +1,60 @@
+
 <?php
-// test_db.php
-require __DIR__ . '/vendor/autoload.php'; // Necesita composer require vlucas/phpdotenv
+require_once 'vendor/autoload.php';
+require_once 'config/database.php';
 
-use Dotenv\Dotenv;
-
-$dotenv = Dotenv::createImmutable(__DIR__);
+// Load environment variables
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
-$host = $_ENV['DB_HOST'];
-$db   = $_ENV['DB_NAME'];
-$user = $_ENV['DB_USER'];
-$pass = $_ENV['DB_PASS'];
-$charset = $_ENV['DB_CHARSET'] ?? 'utf8mb4';
-
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
-
-$options = [
-    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    PDO::ATTR_EMULATE_PREPARES   => false,
-];
-
 try {
-    $pdo = new PDO($dsn, $user, $pass, $options);
-    echo "✅ Conexión exitosa a la BD <b>$db</b><br><br>";
-
-    // Verificar tablas
-    $stmt = $pdo->query("SHOW TABLES;");
-    $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-    if ($tables) {
-        echo "Tablas encontradas:<br>";
-        foreach ($tables as $table) {
-            echo "- $table <br>";
-        }
-    } else {
-        echo "⚠️ No se encontraron tablas en la BD.";
+    echo "Testing database connection...\n";
+    
+    $db = Database::getInstance();
+    
+    // Test basic connection
+    $stmt = $db->prepare("SELECT 1 as test");
+    $stmt->execute();
+    $result = $stmt->fetch();
+    
+    if ($result['test'] == 1) {
+        echo "✓ Database connection successful\n";
     }
-
-} catch (PDOException $e) {
-    echo "❌ Error de conexión: " . $e->getMessage();
+    
+    // Test views
+    echo "\nTesting views...\n";
+    
+    $views = [
+        'vw_public_estadisticas',
+        'vw_public_personas',
+        'vw_public_refugios'
+    ];
+    
+    foreach ($views as $view) {
+        try {
+            $stmt = $db->prepare("SELECT COUNT(*) as count FROM $view");
+            $stmt->execute();
+            $result = $stmt->fetch();
+            echo "✓ View $view: {$result['count']} records\n";
+        } catch (Exception $e) {
+            echo "✗ View $view: Error - " . $e->getMessage() . "\n";
+        }
+    }
+    
+    // Test stored procedures
+    echo "\nTesting stored procedures...\n";
+    
+    try {
+        $stmt = $db->prepare("CALL sp_estadisticas_refugio(1)");
+        $stmt->execute();
+        echo "✓ Stored procedure sp_estadisticas_refugio working\n";
+    } catch (Exception $e) {
+        echo "✗ Stored procedure error: " . $e->getMessage() . "\n";
+    }
+    
+    echo "\nDatabase test completed!\n";
+    
+} catch (Exception $e) {
+    echo "✗ Database connection failed: " . $e->getMessage() . "\n";
+    exit(1);
 }
