@@ -1,4 +1,3 @@
-
 # Sistema de Refugios - Plan de Pruebas
 
 ## 📋 Información General
@@ -72,68 +71,6 @@
 ---
 
 ## 🌐 Phase 1: Landing Page Pública (Planificado)
-
-### Pruebas Funcionales
-
-#### Test 1.1: Hero Section
-**Objetivo:** Verificar sección principal de landing
-
-**Pasos:**
-1. Acceder a landing page
-2. Verificar título y subtítulo
-3. Comprobar CTAs principales funcionan
-4. Test responsivo (móvil/tablet/desktop)
-
-**Criterios de Aceptación:**
-- [ ] Hero visible en todas las resoluciones
-- [ ] CTAs llevan a secciones correctas
-- [ ] Texto alineado y legible
-
-#### Test 1.2: Buscador de Personas
-**Objetivo:** Validar búsqueda en tiempo real
-
-**Pasos:**
-1. Escribir nombre en buscador
-2. Verificar debounce de 300ms
-3. Comprobar resultados desde vw_public_personas
-4. Probar filtros por refugio
-5. Verificar paginación
-
-**Criterios de Aceptación:**
-- [ ] Búsqueda responde después de 300ms
-- [ ] Resultados precisos y formateados
-- [ ] Paginación funcional
-- [ ] Filtros aplicados correctamente
-
-#### Test 1.3: Catálogo de Refugios
-**Objetivo:** Verificar listado y filtrado de refugios
-
-**Pasos:**
-1. Verificar grid de refugios desde vw_public_refugios
-2. Probar filtros dinámicos
-3. Verificar indicadores de capacidad
-4. Comprobar links a descarga CSV
-
-**Criterios de Aceptación:**
-- [ ] Grid responsive
-- [ ] Filtros dinámicos operativos
-- [ ] Indicadores precisos
-- [ ] Descargas funcionan
-
-#### Test 1.4: Descargas CSV
-**Objetivo:** Validar exportación de datos
-
-**Pasos:**
-1. Seleccionar refugio
-2. Hacer clic en "Descargar CSV"
-3. Verificar archivo descargado
-4. Validar formato y contenido
-
-**Criterios de Aceptación:**
-- [ ] Archivo CSV válido
-- [ ] Datos correctos del refugio
-- [ ] Headers apropiados
-- [ ] Sin datos sensibles
 
 ### Pruebas de Performance
 
@@ -457,7 +394,7 @@
 ### Herramientas Sugeridas
 - **Manual Testing:** Navegadores múltiples (Chrome, Firefox, Safari)
 - **Performance:** Apache Bench (ab), Lighthouse
-- **Seguridad:** OWASP ZAP, manual testing
+- **Security:** OWASP ZAP, manual testing
 - **Database:** phpMyAdmin para verificaciones
 
 ---

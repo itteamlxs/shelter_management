@@ -60,4 +60,73 @@ class RefugioModel {
             return [];
         }
     }
+    
+    /**
+     * Search public refugios with pagination
+     * @param string|null $search_term
+     * @param int $limit
+     * @param int $offset
+     * @return array
+     */
+    public function searchPublicRefugios($search_term = null, $limit = 20, $offset = 0) {
+        try {
+            $sql = "
+                SELECT *, COUNT(*) OVER() as total_registros 
+                FROM vw_public_refugios 
+            ";
+            
+            $params = [];
+            if ($search_term) {
+                $sql .= " WHERE nombre_refugio LIKE ? OR ubicacion LIKE ?";
+                $search_pattern = '%' . $search_term . '%';
+                $params = [$search_pattern, $search_pattern];
+            }
+            
+            $sql .= " ORDER BY nombre_refugio LIMIT ? OFFSET ?";
+            $params[] = $limit;
+            $params[] = $offset;
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            
+            $data = $stmt->fetchAll();
+            $total = 0;
+            
+            if (!empty($data)) {
+                $total = (int)$data[0]['total_registros'];
+                // Remove the total_registros field from each record
+                foreach ($data as &$row) {
+                    unset($row['total_registros']);
+                }
+            }
+            
+            return [
+                'data' => $data,
+                'total' => $total
+            ];
+            
+        } catch (PDOException $e) {
+            error_log("Error in searchPublicRefugios: " . $e->getMessage());
+            return [
+                'data' => [],
+                'total' => 0
+            ];
+        }
+    }
+    
+    /**
+     * Get refugio by ID from public view
+     * @param int $refugio_id
+     * @return array|null
+     */
+    public function getPublicRefugioById($refugio_id) {
+        try {
+            $stmt = $this->db->prepare("SELECT * FROM vw_public_refugios WHERE refugio_id = ?");
+            $stmt->execute([$refugio_id]);
+            return $stmt->fetch();
+        } catch (PDOException $e) {
+            error_log("Error in getPublicRefugioById: " . $e->getMessage());
+            return null;
+        }
+    }
 }
