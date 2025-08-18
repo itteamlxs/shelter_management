@@ -1,357 +1,244 @@
 
-/**
- * Main JavaScript file for Sistema de Refugios
- * Handles dynamic data loading and user interactions
- */
-
-// Configuration
+// API Base URL
 const API_BASE = '/backend/api/public.php';
-let currentPersonasPage = 1;
-let currentRefugiosPage = 1;
-let searchTimeout = null;
 
-// Initialize application when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    initializeApp();
-});
+// Utility functions
+const debounce = (func, wait) => {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+};
 
-function initializeApp() {
-    loadLandingData();
-    loadStatistics();
-    loadPersonas();
-    loadRefugios();
-    setupEventListeners();
-}
-
-function setupEventListeners() {
-    // Persona search with debounce
-    const personaSearch = document.getElementById('persona-search');
-    if (personaSearch) {
-        personaSearch.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                currentPersonasPage = 1;
-                loadPersonas(this.value);
-            }, 300);
-        });
-    }
-
-    // Refugio search with debounce
-    const refugioSearch = document.getElementById('refugio-search');
-    if (refugioSearch) {
-        refugioSearch.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                currentRefugiosPage = 1;
-                loadRefugios(this.value);
-            }, 300);
-        });
-    }
-
-    // Search buttons
-    document.getElementById('search-btn')?.addEventListener('click', function() {
-        const searchTerm = document.getElementById('persona-search').value;
-        currentPersonasPage = 1;
-        loadPersonas(searchTerm);
-    });
-
-    document.getElementById('refugio-search-btn')?.addEventListener('click', function() {
-        const searchTerm = document.getElementById('refugio-search').value;
-        currentRefugiosPage = 1;
-        loadRefugios(searchTerm);
-    });
-}
-
-async function loadLandingData() {
+// API calls
+async function apiCall(endpoint, options = {}) {
     try {
-        const response = await fetch(`${API_BASE}/landing`);
-        const result = await response.json();
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                ...options.headers
+            },
+            ...options
+        });
         
-        if (result.data) {
-            document.getElementById('hero-title').textContent = result.data.title;
-            document.getElementById('hero-subtitle').textContent = result.data.subtitle;
-            document.getElementById('hero-mission').textContent = result.data.mission;
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
+        const data = await response.json();
+        return data;
     } catch (error) {
-        console.error('Error loading landing data:', error);
+        console.error(`API call failed for ${endpoint}:`, error);
+        throw error;
     }
 }
 
+// Load statistics
 async function loadStatistics() {
     try {
-        showLoading();
-        const response = await fetch(`${API_BASE}/statistics`);
-        const result = await response.json();
+        const data = await apiCall('/statistics');
         
-        if (result.data) {
-            const stats = result.data;
-            document.getElementById('stat-total-personas').textContent = 
-                (stats.total_personas || 0).toLocaleString();
-            document.getElementById('stat-alojados').textContent = 
-                (stats.total_alojados || 0).toLocaleString();
-            document.getElementById('stat-dados-alta').textContent = 
-                (stats.total_dados_alta || 0).toLocaleString();
-            document.getElementById('stat-refugios').textContent = 
-                (stats.total_refugios || 0).toLocaleString();
+        if (data.success && data.data) {
+            const stats = data.data;
+            document.getElementById('total-personas').textContent = stats.total_personas || '0';
+            document.getElementById('total-alojados').textContent = stats.total_alojados || '0';
+            document.getElementById('total-refugios').textContent = stats.total_refugios || '0';
+            document.getElementById('total-dados-alta').textContent = stats.total_dados_alta || '0';
         }
     } catch (error) {
         console.error('Error loading statistics:', error);
-        showError('No se pudieron cargar las estadísticas');
-    } finally {
-        hideLoading();
+        // Set default values on error
+        document.getElementById('total-personas').textContent = 'Error';
+        document.getElementById('total-alojados').textContent = 'Error';
+        document.getElementById('total-refugios').textContent = 'Error';
+        document.getElementById('total-dados-alta').textContent = 'Error';
     }
 }
 
-async function loadPersonas(searchTerm = '', page = 1) {
+// Load refugios for filter
+async function loadRefugiosFilter() {
     try {
-        showLoading();
-        const params = new URLSearchParams({
-            page: page,
-            per_page: 20
-        });
+        const data = await apiCall('/refugios');
         
-        if (searchTerm) {
-            params.append('search', searchTerm);
+        if (data.success && data.data) {
+            const select = document.getElementById('filter-refugio');
+            data.data.forEach(refugio => {
+                const option = document.createElement('option');
+                option.value = refugio.refugio_id;
+                option.textContent = refugio.nombre_refugio;
+                select.appendChild(option);
+            });
         }
-        
-        const response = await fetch(`${API_BASE}/personas?${params}`);
-        const result = await response.json();
-        
-        displayPersonas(result.data || []);
-        displayPersonasPagination(result.meta);
-        
     } catch (error) {
-        console.error('Error loading personas:', error);
-        showError('No se pudieron cargar las personas');
-    } finally {
-        hideLoading();
+        console.error('Error loading refugios for filter:', error);
     }
 }
 
-function displayPersonas(personas) {
-    const tbody = document.getElementById('personas-table-body');
-    if (!tbody) return;
-    
-    if (personas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No se encontraron resultados</td></tr>';
-        return;
-    }
-    
-    tbody.innerHTML = personas.map(persona => `
-        <tr>
-            <td>${escapeHtml(persona.nombre)}</td>
-            <td>${escapeHtml(persona.edad_rango)}</td>
-            <td>
-                <span class="badge ${getStatusBadgeClass(persona.estatus)}">
-                    ${escapeHtml(persona.estatus)}
-                </span>
-            </td>
-            <td>${formatDate(persona.fecha_ingreso)} ${formatTime(persona.hora_ingreso)}</td>
-            <td>${escapeHtml(persona.refugio)}</td>
-            <td>${escapeHtml(persona.direccion)}</td>
-        </tr>
-    `).join('');
-}
-
-function displayPersonasPagination(meta) {
-    const pagination = document.getElementById('personas-pagination');
-    if (!pagination || !meta) return;
-    
-    let html = '';
-    
-    // Previous button
-    if (meta.has_prev) {
-        html += `<li class="page-item">
-            <a class="page-link" href="#" onclick="loadPersonas('${document.getElementById('persona-search').value}', ${meta.current_page - 1})">Anterior</a>
-        </li>`;
-    }
-    
-    // Page numbers (show max 5 pages)
-    const startPage = Math.max(1, meta.current_page - 2);
-    const endPage = Math.min(meta.total_pages, startPage + 4);
-    
-    for (let i = startPage; i <= endPage; i++) {
-        html += `<li class="page-item ${i === meta.current_page ? 'active' : ''}">
-            <a class="page-link" href="#" onclick="loadPersonas('${document.getElementById('persona-search').value}', ${i})">${i}</a>
-        </li>`;
-    }
-    
-    // Next button
-    if (meta.has_next) {
-        html += `<li class="page-item">
-            <a class="page-link" href="#" onclick="loadPersonas('${document.getElementById('persona-search').value}', ${meta.current_page + 1})">Siguiente</a>
-        </li>`;
-    }
-    
-    pagination.innerHTML = html;
-}
-
-async function loadRefugios(searchTerm = '', page = 1) {
+// Load refugios cards
+async function loadRefugios() {
     try {
-        showLoading();
-        const params = new URLSearchParams({
-            page: page,
-            per_page: 12
-        });
+        const data = await apiCall('/refugios');
         
-        if (searchTerm) {
-            params.append('search', searchTerm);
+        if (data.success && data.data) {
+            const container = document.getElementById('refugios-container');
+            container.innerHTML = '';
+            
+            data.data.forEach(refugio => {
+                const col = document.createElement('div');
+                col.className = 'col-md-6 col-lg-4 mb-4';
+                
+                const occupancyPercentage = refugio.porcentaje_ocupacion || 0;
+                const statusClass = occupancyPercentage >= 90 ? 'danger' : 
+                                  occupancyPercentage >= 70 ? 'warning' : 'success';
+                
+                col.innerHTML = `
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">${refugio.nombre_refugio}</h5>
+                            <p class="card-text">
+                                <i class="bi bi-geo-alt text-muted"></i>
+                                ${refugio.ubicacion}
+                            </p>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>Ocupación</span>
+                                    <span>${refugio.capacidad_ocupada}/${refugio.capacidad_maxima}</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar bg-${statusClass}" 
+                                         style="width: ${occupancyPercentage}%"></div>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="badge bg-${statusClass}">${refugio.estado}</span>
+                                <small class="text-muted">
+                                    Apertura: ${new Date(refugio.fecha_apertura).toLocaleDateString()}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(col);
+            });
         }
-        
-        const response = await fetch(`${API_BASE}/refugios?${params}`);
-        const result = await response.json();
-        
-        displayRefugios(result.data || []);
-        displayRefugiosPagination(result.meta);
-        
     } catch (error) {
         console.error('Error loading refugios:', error);
-        showError('No se pudieron cargar los refugios');
-    } finally {
-        hideLoading();
+        document.getElementById('refugios-container').innerHTML = 
+            '<div class="col-12"><div class="alert alert-danger">Error al cargar los refugios</div></div>';
     }
 }
 
-function displayRefugios(refugios) {
-    const grid = document.getElementById('refugios-grid');
-    if (!grid) return;
+// Search personas
+async function searchPersonas() {
+    const searchTerm = document.getElementById('search-personas').value;
+    const refugioId = document.getElementById('filter-refugio').value;
     
-    if (refugios.length === 0) {
-        grid.innerHTML = '<div class="col-12 text-center">No se encontraron refugios</div>';
+    try {
+        let endpoint = '/personas?';
+        const params = new URLSearchParams();
+        
+        if (searchTerm) params.append('search', searchTerm);
+        if (refugioId) params.append('refugio_id', refugioId);
+        params.append('limit', '20');
+        params.append('offset', '0');
+        
+        const data = await apiCall(`/personas?${params.toString()}`);
+        
+        if (data.success && data.data) {
+            displayPersonasResults(data.data);
+        }
+    } catch (error) {
+        console.error('Error searching personas:', error);
+        document.getElementById('personas-results').innerHTML = 
+            '<div class="alert alert-danger">Error al buscar personas</div>';
+    }
+}
+
+// Display personas results
+function displayPersonasResults(personas) {
+    const container = document.getElementById('personas-results');
+    
+    if (personas.length === 0) {
+        container.innerHTML = '<div class="alert alert-info">No se encontraron personas con los criterios especificados</div>';
         return;
     }
     
-    grid.innerHTML = refugios.map(refugio => `
-        <div class="col-lg-4 col-md-6">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">${escapeHtml(refugio.nombre_refugio)}</h5>
-                    <p class="card-text">
-                        <i class="fas fa-map-marker-alt text-muted me-1"></i>
-                        ${escapeHtml(refugio.ubicacion)}
-                    </p>
-                    <div class="row text-center mb-3">
-                        <div class="col-4">
-                            <small class="text-muted">Capacidad</small>
-                            <div class="fw-bold">${refugio.capacidad_maxima}</div>
-                        </div>
-                        <div class="col-4">
-                            <small class="text-muted">Ocupados</small>
-                            <div class="fw-bold text-primary">${refugio.capacidad_ocupada}</div>
-                        </div>
-                        <div class="col-4">
-                            <small class="text-muted">Disponible</small>
-                            <div class="fw-bold text-success">${refugio.capacidad_maxima - refugio.capacidad_ocupada}</div>
-                        </div>
-                    </div>
-                    <div class="progress mb-3">
-                        <div class="progress-bar ${getCapacityProgressClass(refugio.porcentaje_ocupacion)}" 
-                             style="width: ${refugio.porcentaje_ocupacion}%">
-                            ${refugio.porcentaje_ocupacion}%
-                        </div>
-                    </div>
-                    <span class="badge ${getStatusBadgeClass(refugio.estado)} mb-2">${refugio.estado}</span>
-                </div>
-                <div class="card-footer bg-transparent">
-                    <div class="d-grid">
-                        <button class="btn btn-outline-primary btn-sm" onclick="downloadRefugioData(${refugio.refugio_id})">
-                            <i class="fas fa-download me-1"></i>Descargar CSV
-                        </button>
-                    </div>
+    let html = `
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Resultados de la búsqueda (${personas.length})</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Edad</th>
+                                <th>Género</th>
+                                <th>Estatus</th>
+                                <th>Refugio</th>
+                                <th>Fecha Ingreso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+    `;
+    
+    personas.forEach(persona => {
+        const statusClass = persona.estatus === 'Alojado' ? 'success' : 
+                           persona.estatus === 'Dado de alta' ? 'info' : 'warning';
+        
+        html += `
+            <tr>
+                <td><strong>${persona.nombre}</strong></td>
+                <td>${persona.edad_rango}</td>
+                <td>${persona.genero}</td>
+                <td><span class="badge bg-${statusClass}">${persona.estatus}</span></td>
+                <td>${persona.refugio}</td>
+                <td>${new Date(persona.fecha_ingreso).toLocaleDateString()}</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
-    `).join('');
-}
-
-function displayRefugiosPagination(meta) {
-    const pagination = document.getElementById('refugios-pagination');
-    if (!pagination || !meta) return;
+    `;
     
-    let html = '';
+    container.innerHTML = html;
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Load initial data
+    loadStatistics();
+    loadRefugiosFilter();
+    loadRefugios();
     
-    // Previous button
-    if (meta.has_prev) {
-        html += `<li class="page-item">
-            <a class="page-link" href="#" onclick="loadRefugios('${document.getElementById('refugio-search').value}', ${meta.current_page - 1})">Anterior</a>
-        </li>`;
-    }
+    // Search functionality with debounce
+    const debouncedSearch = debounce(searchPersonas, 300);
+    document.getElementById('search-personas').addEventListener('input', debouncedSearch);
+    document.getElementById('filter-refugio').addEventListener('change', searchPersonas);
     
-    // Page numbers
-    const startPage = Math.max(1, meta.current_page - 2);
-    const endPage = Math.min(meta.total_pages, startPage + 4);
-    
-    for (let i = startPage; i <= endPage; i++) {
-        html += `<li class="page-item ${i === meta.current_page ? 'active' : ''}">
-            <a class="page-link" href="#" onclick="loadRefugios('${document.getElementById('refugio-search').value}', ${i})">${i}</a>
-        </li>`;
-    }
-    
-    // Next button
-    if (meta.has_next) {
-        html += `<li class="page-item">
-            <a class="page-link" href="#" onclick="loadRefugios('${document.getElementById('refugio-search').value}', ${meta.current_page + 1})">Siguiente</a>
-        </li>`;
-    }
-    
-    pagination.innerHTML = html;
-}
-
-function downloadRefugioData(refugioId) {
-    // This would be implemented in Phase 2
-    alert('Funcionalidad de descarga será implementada en la Fase 2');
-}
-
-// Utility functions
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES');
-}
-
-function formatTime(timeString) {
-    if (!timeString) return '';
-    return timeString.substring(0, 5); // HH:MM
-}
-
-function getStatusBadgeClass(status) {
-    switch(status) {
-        case 'Alojado':
-            return 'bg-success';
-        case 'Dado de alta':
-            return 'bg-info';
-        case 'Trasladado a otro refugio':
-            return 'bg-warning';
-        case 'Disponible':
-            return 'bg-success';
-        case 'Completo':
-            return 'bg-danger';
-        default:
-            return 'bg-secondary';
-    }
-}
-
-function getCapacityProgressClass(percentage) {
-    if (percentage >= 90) return 'bg-danger';
-    if (percentage >= 75) return 'bg-warning';
-    return 'bg-success';
-}
-
-function showLoading() {
-    document.getElementById('loading-spinner')?.classList.remove('d-none');
-}
-
-function hideLoading() {
-    document.getElementById('loading-spinner')?.classList.add('d-none');
-}
-
-function showError(message) {
-    // Simple error display - could be enhanced with toast notifications
-    console.error(message);
-}
+    // Smooth scrolling for navigation links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+});
