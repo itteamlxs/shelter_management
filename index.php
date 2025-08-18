@@ -14,6 +14,35 @@ error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
+// Handle static files first
+$request_uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+// Serve static assets
+if (preg_match('/\.(css|js|png|jpg|jpeg|gif|ico|svg)$/', $request_uri)) {
+    $file_path = __DIR__ . $request_uri;
+    if (file_exists($file_path)) {
+        $ext = pathinfo($file_path, PATHINFO_EXTENSION);
+        $mime_types = [
+            'css' => 'text/css',
+            'js' => 'application/javascript',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'ico' => 'image/x-icon',
+            'svg' => 'image/svg+xml'
+        ];
+        
+        header('Content-Type: ' . ($mime_types[$ext] ?? 'application/octet-stream'));
+        readfile($file_path);
+        exit;
+    } else {
+        http_response_code(404);
+        echo "File not found";
+        exit;
+    }
+}
+
 // CORS headers for API endpoints
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     header('Access-Control-Allow-Origin: *');
@@ -23,7 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 header('Access-Control-Allow-Origin: *');
-header('Content-Type: application/json');
+
+// Only set JSON content type for API routes
+if (strpos($request_uri, '/api/') === 0 || strpos($request_uri, '/public/') === 0 || strpos($request_uri, '/auth/') === 0 || strpos($request_uri, '/refugio/') === 0 || strpos($request_uri, '/auditor/') === 0 || strpos($request_uri, '/admin/') === 0) {
+    header('Content-Type: application/json');
+}
 
 $router = new Router();
 
