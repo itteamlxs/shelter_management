@@ -15,7 +15,6 @@
             <a class="navbar-brand" href="/">Sistema de Refugios</a>
             <div>
                 <a href="/login" class="btn btn-primary">Iniciar Sesión</a>
-                <a href="/panel" class="btn btn-outline-primary ms-2">Panel</a>
             </div>
         </div>
     </nav>

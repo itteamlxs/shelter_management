@@ -41,7 +41,7 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
-            <a class="navbar-brand" href="/panel">Sistema de Refugios</a>
+            <a class="navbar-brand" href="/">Sistema de Refugios</a>
             <div class="navbar-nav ms-auto">
                 <span class="navbar-text me-3" id="userInfo">
                     Cargando...
@@ -269,35 +269,36 @@
 
         // Quick action functions
         function createUser() {
-            window.location.href = '/panel'; // Redirect to full panel for complex actions
+            // Full management functionality would be implemented here
+            alert('Funcionalidad de gestión completa en desarrollo');
         }
 
         function createRefugio() {
-            window.location.href = '/panel';
+            alert('Funcionalidad de gestión completa en desarrollo');
         }
 
         function viewUsers() {
-            window.location.href = '/panel';
+            alert('Funcionalidad de gestión completa en desarrollo');
         }
 
         function viewAuditLogs() {
-            window.location.href = '/panel';
+            alert('Funcionalidad de gestión completa en desarrollo');
         }
 
         function addPersona() {
-            window.location.href = '/panel';
+            alert('Funcionalidad de gestión completa en desarrollo');
         }
 
         function uploadCSV() {
-            window.location.href = '/panel';
+            alert('Funcionalidad de gestión completa en desarrollo');
         }
 
         function viewPersonas() {
-            window.location.href = '/panel';
+            alert('Funcionalidad de gestión completa en desarrollo');
         }
 
         function updateProfile() {
-            window.location.href = '/panel';
+            alert('Funcionalidad de gestión completa en desarrollo');
         }
     </script>
 </body>

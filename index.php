@@ -109,18 +109,7 @@ $router->post('/auth/logout', function() {
     include 'api/auth/logout.php';
 });
 
-// Protected Panel routes - require authentication
-$router->get('/panel', function() {
-    // Check if user is authenticated
-    $user = Auth::getCurrentUser();
-    if (!$user) {
-        header('Location: /login');
-        exit;
-    }
-    header('Content-Type: text/html');
-    include 'views/panel.php';
-});
-
+// Protected routes - require authentication
 $router->get('/dashboard', function() {
     // Check if user is authenticated
     $user = Auth::getCurrentUser();
@@ -130,6 +119,12 @@ $router->get('/dashboard', function() {
     }
     header('Content-Type: text/html');
     include 'views/dashboard.php';
+});
+
+$router->get('/panel', function() {
+    // Redirect panel to dashboard for backward compatibility
+    header('Location: /dashboard');
+    exit;
 });
 
 // Admin routes - require admin authentication

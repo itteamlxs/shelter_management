@@ -142,7 +142,7 @@
                 if (data.success) {
                     // Store token and redirect
                     localStorage.setItem('authToken', data.token);
-                    window.location.href = '/panel';
+                    window.location.href = '/dashboard';
                 } else {
                     errorDiv.textContent = data.error || 'Error de autenticación';
                     errorDiv.classList.remove('d-none');
@@ -164,7 +164,7 @@
         
         // Check if already logged in
         if (localStorage.getItem('authToken')) {
-            window.location.href = '/panel';
+            window.location.href = '/dashboard';
         }
     </script>
 </body>
