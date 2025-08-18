@@ -15,7 +15,7 @@ CREATE TABLE Refugios (
     fecha_apertura DATE NOT NULL,
     capacidad_maxima INT NOT NULL,
     capacidad_ocupada INT NOT NULL DEFAULT 0,
-    estado ENUM('Disponible','Completo') 
+    estado ENUM('Disponible','Completo')
         AS (CASE WHEN capacidad_ocupada >= capacidad_maxima THEN 'Completo' ELSE 'Disponible' END) STORED,
     creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -139,7 +139,7 @@ CREATE INDEX idx_registro_fecha ON RegistroRefugio(fecha_ingreso);
 
 -- VISTAS PÚBLICAS
 CREATE VIEW vw_public_refugios AS
-SELECT 
+SELECT
     refugio_id,
     nombre_refugio,
     ubicacion,
@@ -154,7 +154,7 @@ FROM Refugios
 WHERE capacidad_maxima > 0;
 
 CREATE VIEW vw_public_personas AS
-SELECT 
+SELECT
     p.persona_id,
     p.nombre_preferido AS nombre,
     p.edad_rango,
@@ -170,7 +170,7 @@ JOIN Refugios r ON rr.refugio_id = r.refugio_id
 WHERE rr.estatus = 'Alojado';
 
 CREATE VIEW vw_public_estadisticas AS
-SELECT 
+SELECT
     COUNT(DISTINCT r.refugio_id) as total_refugios,
     COUNT(DISTINCT p.persona_id) AS total_personas,
     SUM(CASE WHEN rr.estatus='Alojado' THEN 1 ELSE 0 END) AS total_alojados,
@@ -184,7 +184,7 @@ JOIN Refugios r ON rr.refugio_id = r.refugio_id;
 
 -- VISTAS PRIVADAS
 CREATE VIEW vw_refugio_personas AS
-SELECT 
+SELECT
     p.persona_id,
     p.nombre_preferido,
     p.edad_rango,
@@ -225,7 +225,7 @@ CREATE PROCEDURE sp_registrar_ingreso(
 BEGIN
     DECLARE v_cap_actual INT;
     DECLARE v_cap_max INT;
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION 
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
         RESIGNAL;
@@ -247,7 +247,7 @@ BEGIN
         END IF;
 
         INSERT INTO AuditLog(usuario_id, rol, accion, objeto, objeto_id, resumen)
-        VALUES (p_usuario_id, NULL, 'INSERT', 'RegistroRefugio', LAST_INSERT_ID(), 
+        VALUES (p_usuario_id, NULL, 'INSERT', 'RegistroRefugio', LAST_INSERT_ID(),
                 CONCAT('Ingreso de persona ', p_persona_id, ' en refugio ', p_refugio_id));
     END IF;
 
@@ -261,7 +261,7 @@ CREATE PROCEDURE sp_buscar_personas_publico(
     IN p_offset INT
 )
 BEGIN
-    SELECT 
+    SELECT
         persona_id,
         nombre,
         edad_rango,
@@ -272,9 +272,9 @@ BEGIN
         refugio,
         direccion
     FROM vw_public_personas
-    WHERE 
-        (p_search IS NULL OR p_search = '' OR 
-         nombre LIKE CONCAT('%', p_search, '%') OR 
+    WHERE
+        (p_search IS NULL OR p_search = '' OR
+         nombre LIKE CONCAT('%', p_search, '%') OR
          refugio LIKE CONCAT('%', p_search, '%'))
         AND (p_refugio_id IS NULL OR refugio_id = p_refugio_id)
     ORDER BY fecha_ingreso DESC, hora_ingreso DESC
@@ -285,7 +285,7 @@ CREATE PROCEDURE sp_estadisticas_refugio(
     IN p_refugio_id INT
 )
 BEGIN
-    SELECT 
+    SELECT
         r.nombre_refugio,
         r.capacidad_maxima,
         r.capacidad_ocupada,
