@@ -31,6 +31,17 @@ class Router {
         $method = $_SERVER['REQUEST_METHOD'];
         $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         
+        // Remove base path for XAMPP subdirectory installations
+        $script_name = dirname($_SERVER['SCRIPT_NAME']);
+        if ($script_name !== '/' && strpos($path, $script_name) === 0) {
+            $path = substr($path, strlen($script_name));
+        }
+        
+        // Ensure path starts with /
+        if (empty($path) || $path[0] !== '/') {
+            $path = '/' . $path;
+        }
+        
         foreach ($this->routes as $route) {
             if ($route['method'] === $method && $this->matchPath($route['path'], $path)) {
                 $params = $this->extractParams($route['path'], $path);
@@ -39,7 +50,7 @@ class Router {
         }
         
         http_response_code(404);
-        echo json_encode(['error' => 'Route not found']);
+        echo json_encode(['error' => 'Route not found', 'path' => $path, 'method' => $method]);
     }
     
     private function matchPath($pattern, $path) {

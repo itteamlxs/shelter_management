@@ -1,8 +1,5 @@
 
 <?php
-// Start output buffering to prevent header issues
-ob_start();
-
 require_once 'vendor/autoload.php';
 require_once 'config/database.php';
 require_once 'config/auth.php';
@@ -19,6 +16,12 @@ ini_set('log_errors', 1);
 
 // Handle static files first
 $request_uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+// Remove base path for XAMPP subdirectory installations
+$script_name = dirname($_SERVER['SCRIPT_NAME']);
+if ($script_name !== '/' && strpos($request_uri, $script_name) === 0) {
+    $request_uri = substr($request_uri, strlen($script_name));
+}
 
 // Serve static assets
 if (preg_match('/\.(css|js|png|jpg|jpeg|gif|ico|svg)$/', $request_uri)) {
@@ -56,8 +59,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 header('Access-Control-Allow-Origin: *');
 
+// Get clean path for API detection
+$clean_path = $request_uri;
+$script_name = dirname($_SERVER['SCRIPT_NAME']);
+if ($script_name !== '/' && strpos($clean_path, $script_name) === 0) {
+    $clean_path = substr($clean_path, strlen($script_name));
+}
+
 // Only set JSON content type for API routes
-if (strpos($request_uri, '/api/') === 0 || strpos($request_uri, '/public/') === 0 || strpos($request_uri, '/auth/') === 0 || strpos($request_uri, '/refugio/') === 0 || strpos($request_uri, '/auditor/') === 0 || strpos($request_uri, '/admin/') === 0) {
+if (strpos($clean_path, '/api/') === 0 || strpos($clean_path, '/public/') === 0 || strpos($clean_path, '/auth/') === 0 || strpos($clean_path, '/refugio/') === 0 || strpos($clean_path, '/auditor/') === 0 || strpos($clean_path, '/admin/') === 0) {
     header('Content-Type: application/json');
 }
 
